@@ -43,8 +43,8 @@ export default async function HomePage() {
                 <Link
                   href={`/?chatId=${chat.id}`}
                   className={`flex-1 rounded-lg p-3 text-left text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 ${chat.id === activeChatId
-                      ? "bg-gray-700"
-                      : "hover:bg-gray-750 bg-gray-800"
+                    ? "bg-gray-700"
+                    : "hover:bg-gray-750 bg-gray-800"
                     }`}
                 >
                   {chat.title}
@@ -68,7 +68,7 @@ export default async function HomePage() {
         </div>
       </div>
 
-      <ChatPage userName={userName} />
+      <ChatPage userName={userName} isAuthenticated={isAuthenticated} />
     </div>
   );
 }
