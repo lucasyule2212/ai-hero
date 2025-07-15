@@ -42,11 +42,10 @@ export default async function HomePage() {
               <div key={chat.id} className="flex items-center gap-2">
                 <Link
                   href={`/?chatId=${chat.id}`}
-                  className={`flex-1 rounded-lg p-3 text-left text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 ${
-                    chat.id === activeChatId
+                  className={`flex-1 rounded-lg p-3 text-left text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 ${chat.id === activeChatId
                       ? "bg-gray-700"
                       : "hover:bg-gray-750 bg-gray-800"
-                  }`}
+                    }`}
                 >
                   {chat.title}
                 </Link>
@@ -64,6 +63,7 @@ export default async function HomePage() {
           <AuthButton
             isAuthenticated={isAuthenticated}
             userImage={session?.user?.image}
+            userName={userName}
           />
         </div>
       </div>
