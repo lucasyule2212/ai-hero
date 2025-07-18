@@ -7,6 +7,7 @@ import { z } from "zod";
 import { model } from "~/models";
 import { auth } from "~/server/auth/index";
 import { searchSerper } from "~/serper";
+import { checkRateLimit, addUserRequest } from "~/server/db/queries";
 
 export const maxDuration = 60;
 
@@ -15,6 +16,29 @@ export async function POST(request: Request) {
   if (!session || !session.user) {
     return new Response("Unauthorized", { status: 401 });
   }
+
+  // Check rate limit before processing the request
+  const rateLimit = await checkRateLimit(session.user.id);
+  
+  if (!rateLimit.allowed) {
+    return new Response(
+      JSON.stringify({
+        error: "Rate limit exceeded",
+        message: `You have exceeded your daily limit of ${rateLimit.limit} requests. Please try again tomorrow.`,
+        remaining: rateLimit.remaining,
+        limit: rateLimit.limit,
+      }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+          "X-RateLimit-Limit": rateLimit.limit.toString(),
+        },
+      }
+    );
+  }
+
   const body = (await request.json()) as {
     messages: Array<Message>;
   };
@@ -22,6 +46,8 @@ export async function POST(request: Request) {
   return createDataStreamResponse({
     execute: async (dataStream) => {
       const { messages } = body;
+
+      await addUserRequest(session.user.id);
 
       const result = streamText({
         model,
