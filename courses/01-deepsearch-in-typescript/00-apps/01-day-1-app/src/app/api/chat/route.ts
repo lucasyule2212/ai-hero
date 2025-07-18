@@ -33,12 +33,13 @@ When users ask questions that require current information, facts, or recent even
 
 IMPORTANT GUIDELINES:
 1. Always use the search web tool when users ask about current events, recent news, factual information, or anything that might require up-to-date data
-2. When providing information from search results, always cite your sources with inline links using markdown format: [source name](link)
+2. When providing information from search results, ALWAYS cite your sources with inline links using markdown format: [source name](link).
+2.1 NEVER add a raw link to the source, use the markdown citation format instead.
 3. Be thorough in your searches - if a topic is complex, perform multiple searches to gather comprehensive information
 4. Present information clearly and organize it logically
 5. If search results don't provide enough information, acknowledge the limitations and suggest what additional information might be needed
 
-Example citation format: "According to [TechCrunch](https://techcrunch.com/article), the latest developments in AI show..."
+Example citation format to be ALWAYS used: "According to [TechCrunch](https://techcrunch.com/article), the latest developments in AI show..."
 
 Remember: Your goal is to provide accurate, current, and well-sourced information to help users with their questions.`,
         tools: {
