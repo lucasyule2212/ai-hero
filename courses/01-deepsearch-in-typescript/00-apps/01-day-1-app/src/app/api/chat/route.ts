@@ -42,31 +42,46 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     messages: Array<Message>;
-    chatId?: string;
+    chatId: string;
+    isNewChat: boolean;
   };
 
-  const { messages, chatId } = body;
+  const { messages, chatId, isNewChat } = body;
 
-  // Generate a chat ID if not provided
-  const finalChatId = chatId || crypto.randomUUID();
+  // Use the provided chatId
+  const finalChatId = chatId;
   
-  // Generate a title from the first user message
-  const firstUserMessage = messages.find(msg => msg.role === "user");
-  const chatTitle = firstUserMessage?.content?.slice(0, 50) || "New Chat";
+  // Only generate a title for new chats
+  let chatTitle = "New Chat";
+  if (isNewChat) {
+    const firstUserMessage = messages.find(msg => msg.role === "user");
+    chatTitle = firstUserMessage?.content?.slice(0, 50) || "New Chat";
+  }
 
   // Create the chat immediately with the user's message
   // This protects against broken streams
-  await upsertChat({
+  const initialUpsertOptions: {
+    userId: string;
+    chatId: string;
+    title?: string;
+    messages: Message[];
+  } = {
     userId: session.user.id,
     chatId: finalChatId,
-    title: chatTitle,
     messages: messages,
-  });
+  };
+  
+  // Only include title for new chats
+  if (isNewChat) {
+    initialUpsertOptions.title = chatTitle;
+  }
+  
+  await upsertChat(initialUpsertOptions);
 
   return createDataStreamResponse({
     execute: async (dataStream) => {
-      // If this is a new chat (no chatId provided), send the new chat ID to the frontend
-      if (!chatId) {
+      // If this is a new chat, send the new chat ID to the frontend
+      if (isNewChat) {
         dataStream.writeData({
           type: "NEW_CHAT_CREATED",
           chatId: finalChatId,
@@ -139,12 +154,24 @@ Remember: Your goal is to provide accurate, current, and well-sourced informatio
           });
 
           // Save the complete conversation to the database
-          upsertChat({
+          // Only pass title for new chats to prevent unnecessary updates
+          const upsertOptions: {
+            userId: string;
+            chatId: string;
+            title?: string;
+            messages: Message[];
+          } = {
             userId: session.user.id,
             chatId: finalChatId,
-            title: chatTitle,
             messages: updatedMessages,
-          }).catch((error) => {
+          };
+          
+          // Only include title for new chats
+          if (isNewChat) {
+            upsertOptions.title = chatTitle;
+          }
+
+          upsertChat(upsertOptions).catch((error) => {
             console.error("Failed to save chat to database:", error);
           });
         },

@@ -66,14 +66,14 @@ export async function checkRateLimit(userId: string): Promise<{
 export async function upsertChat(opts: {
   userId: string;
   chatId: string;
-  title: string;
+  title?: string;
   messages: Message[];
 }): Promise<void> {
   const { userId, chatId, title, messages: messageList } = opts;
 
   // Check if chat exists and belongs to user
   const existingChat = await db
-    .select({ id: chats.id })
+    .select({ id: chats.id, title: chats.title })
     .from(chats)
     .where(and(eq(chats.id, chatId), eq(chats.userId, userId)))
     .limit(1);
@@ -82,20 +82,25 @@ export async function upsertChat(opts: {
     // Chat exists - delete all existing messages and replace them
     await db.delete(messages).where(eq(messages.chatId, chatId));
     
-    // Update chat title and timestamp
+    // Only update title if it's provided and different from the existing title
+    const updateData: { updatedAt: Date; title?: string } = { 
+      updatedAt: new Date() 
+    };
+    
+    if (title && existingChat[0]?.title !== title) {
+      updateData.title = title;
+    }
+    
     await db
       .update(chats)
-      .set({ 
-        title, 
-        updatedAt: new Date() 
-      })
+      .set(updateData)
       .where(eq(chats.id, chatId));
   } else {
     // Chat doesn't exist - create new chat
     await db.insert(chats).values({
       id: chatId,
       userId,
-      title,
+      title: title || "New Chat",
     });
   }
 

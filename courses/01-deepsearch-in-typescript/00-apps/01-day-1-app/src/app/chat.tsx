@@ -9,11 +9,14 @@ import { toast } from "sonner";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isNewChatCreated } from "~/utils";
+import type { Message } from "ai";
 
 interface ChatProps {
   userName: string;
   isAuthenticated: boolean;
-  chatId?: string;
+  chatId: string;
+  isNewChat: boolean;
+  initialMessages?: Message[];
 }
 
 interface RateLimitInfo {
@@ -22,7 +25,7 @@ interface RateLimitInfo {
   isExceeded: boolean;
 }
 
-export const ChatPage = ({ userName, isAuthenticated, chatId }: ChatProps) => {
+export const ChatPage = ({ userName, isAuthenticated, chatId, isNewChat, initialMessages }: ChatProps) => {
   const router = useRouter();
 
   const {
@@ -34,8 +37,10 @@ export const ChatPage = ({ userName, isAuthenticated, chatId }: ChatProps) => {
     error,
     data
   } = useChat({
+    initialMessages,
     body: {
       chatId,
+      isNewChat,
     },
     onError: (error) => {
       if (error.message.includes("429")) {
