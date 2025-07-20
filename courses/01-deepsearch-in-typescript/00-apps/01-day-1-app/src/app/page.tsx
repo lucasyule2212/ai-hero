@@ -13,7 +13,12 @@ const chats = [
 
 const activeChatId = "1";
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ id?: string }>;
+}) {
+  const { id } = await searchParams;
   const session = await auth();
   const userName = session?.user?.name ?? "Guest";
   const isAuthenticated = !!session?.user;
@@ -41,7 +46,7 @@ export default async function HomePage() {
             chats.map((chat) => (
               <div key={chat.id} className="flex items-center gap-2">
                 <Link
-                  href={`/?chatId=${chat.id}`}
+                  href={`/?id=${chat.id}`}
                   className={`flex-1 rounded-lg p-3 text-left text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 ${chat.id === activeChatId
                     ? "bg-gray-700"
                     : "hover:bg-gray-750 bg-gray-800"
@@ -68,7 +73,7 @@ export default async function HomePage() {
         </div>
       </div>
 
-      <ChatPage userName={userName} isAuthenticated={isAuthenticated} />
+      <ChatPage userName={userName} isAuthenticated={isAuthenticated} chatId={id} />
     </div>
   );
 }

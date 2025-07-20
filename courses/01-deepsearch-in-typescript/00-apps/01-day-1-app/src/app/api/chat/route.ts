@@ -1,8 +1,8 @@
 import type { Message } from "ai";
 import {
-    streamText,
-    createDataStreamResponse,
-    appendResponseMessages,
+  streamText,
+  createDataStreamResponse,
+  appendResponseMessages,
 } from "ai";
 import { z } from "zod";
 import { model } from "~/models";
@@ -65,6 +65,14 @@ export async function POST(request: Request) {
 
   return createDataStreamResponse({
     execute: async (dataStream) => {
+      // If this is a new chat (no chatId provided), send the new chat ID to the frontend
+      if (!chatId) {
+        dataStream.writeData({
+          type: "NEW_CHAT_CREATED",
+          chatId: finalChatId,
+        });
+      }
+
       await addUserRequest(session.user.id);
 
       const result = streamText({

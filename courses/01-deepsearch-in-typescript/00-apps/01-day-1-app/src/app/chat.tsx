@@ -7,10 +7,13 @@ import { useChat } from "@ai-sdk/react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { isNewChatCreated } from "~/utils";
 
 interface ChatProps {
   userName: string;
   isAuthenticated: boolean;
+  chatId?: string;
 }
 
 interface RateLimitInfo {
@@ -19,15 +22,21 @@ interface RateLimitInfo {
   isExceeded: boolean;
 }
 
-export const ChatPage = ({ userName, isAuthenticated }: ChatProps) => {
+export const ChatPage = ({ userName, isAuthenticated, chatId }: ChatProps) => {
+  const router = useRouter();
+
   const {
     messages,
     input,
     handleInputChange,
     handleSubmit,
     isLoading,
-    error
+    error,
+    data
   } = useChat({
+    body: {
+      chatId,
+    },
     onError: (error) => {
       if (error.message.includes("429")) {
         try {
@@ -89,6 +98,15 @@ export const ChatPage = ({ userName, isAuthenticated }: ChatProps) => {
         });
     }
   }, [isAuthenticated]);
+
+  // Handle new chat creation and redirect
+  useEffect(() => {
+    const lastDataItem = data?.[data.length - 1];
+
+    if (lastDataItem && isNewChatCreated(lastDataItem)) {
+      router.push(`?id=${lastDataItem.chatId}`);
+    }
+  }, [data, router]);
 
   const handleProtectedSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     if (!isAuthenticated) {
