@@ -1,13 +1,14 @@
 import type { Message } from "ai";
 import {
-  streamText,
-  createDataStreamResponse,
+    streamText,
+    createDataStreamResponse,
+    appendResponseMessages,
 } from "ai";
 import { z } from "zod";
 import { model } from "~/models";
 import { auth } from "~/server/auth/index";
 import { searchSerper } from "~/serper";
-import { checkRateLimit, addUserRequest } from "~/server/db/queries";
+import { checkRateLimit, addUserRequest, upsertChat } from "~/server/db/queries";
 
 export const maxDuration = 60;
 
@@ -41,12 +42,29 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     messages: Array<Message>;
+    chatId?: string;
   };
+
+  const { messages, chatId } = body;
+
+  // Generate a chat ID if not provided
+  const finalChatId = chatId || crypto.randomUUID();
+  
+  // Generate a title from the first user message
+  const firstUserMessage = messages.find(msg => msg.role === "user");
+  const chatTitle = firstUserMessage?.content?.slice(0, 50) || "New Chat";
+
+  // Create the chat immediately with the user's message
+  // This protects against broken streams
+  await upsertChat({
+    userId: session.user.id,
+    chatId: finalChatId,
+    title: chatTitle,
+    messages: messages,
+  });
 
   return createDataStreamResponse({
     execute: async (dataStream) => {
-      const { messages } = body;
-
       await addUserRequest(session.user.id);
 
       const result = streamText({
@@ -103,6 +121,24 @@ Remember: Your goal is to provide accurate, current, and well-sourced informatio
               }
             },
           },
+        },
+        onFinish({ text, finishReason, usage, response }) {
+          const responseMessages = response.messages;
+
+          const updatedMessages = appendResponseMessages({
+            messages, // from the POST body
+            responseMessages,
+          });
+
+          // Save the complete conversation to the database
+          upsertChat({
+            userId: session.user.id,
+            chatId: finalChatId,
+            title: chatTitle,
+            messages: updatedMessages,
+          }).catch((error) => {
+            console.error("Failed to save chat to database:", error);
+          });
         },
       });
 
