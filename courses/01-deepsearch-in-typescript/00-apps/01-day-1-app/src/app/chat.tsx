@@ -10,6 +10,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isNewChatCreated } from "~/utils";
 import type { Message } from "ai";
+import { StickToBottom } from "use-stick-to-bottom";
 
 interface ChatProps {
   userName: string;
@@ -137,27 +138,29 @@ export const ChatPage = ({ userName, isAuthenticated, chatId, isNewChat, initial
   return (
     <>
       <div className="flex flex-1 flex-col">
-        <div
-          className="mx-auto w-full max-w-[65ch] flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-track-gray-800 scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500"
-          role="log"
-          aria-label="Chat messages"
+        <StickToBottom
+          className="flex-1 overflow-y-auto [&>div]:scrollbar-thin [&>div]:scrollbar-track-gray-800 [&>div]:scrollbar-thumb-gray-600 [&>div]:hover:scrollbar-thumb-gray-500"
+          resize="smooth"
+          initial="smooth"
         >
-          {messages.map((message, index) => {
-            return (
-              <ChatMessage
-                key={index}
-                parts={message.parts || []}
-                role={message.role}
-                userName={userName}
-              />
-            );
-          })}
-          {isLoading && (
-            <div className="flex justify-center py-4">
-              <Loader2 className="size-6 animate-spin text-gray-400" />
-            </div>
-          )}
-        </div>
+          <StickToBottom.Content className="mx-auto w-full max-w-[65ch] p-4">
+            {messages.map((message, index) => {
+              return (
+                <ChatMessage
+                  key={index}
+                  parts={message.parts || []}
+                  role={message.role}
+                  userName={userName}
+                />
+              );
+            })}
+            {isLoading && (
+              <div className="flex justify-center py-4">
+                <Loader2 className="size-6 animate-spin text-gray-400" />
+              </div>
+            )}
+          </StickToBottom.Content>
+        </StickToBottom>
 
         <div className="border-t border-gray-700">
           <form
