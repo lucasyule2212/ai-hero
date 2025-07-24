@@ -37,7 +37,7 @@ const components: Components = {
   ),
 };
 
-const Markdown = ({ children }: { children: string }) => {
+const Markdown = ({ children }: { children: string }): JSX.Element => {
   return <ReactMarkdown components={components}>{children}</ReactMarkdown>;
 };
 
@@ -45,7 +45,7 @@ const ToolInvocationDisplay = ({
   toolInvocation
 }: {
   toolInvocation: MessagePart & { type: "tool-invocation" }
-}) => {
+}): JSX.Element => {
   const { toolInvocation: invocation } = toolInvocation;
 
   const formatToolName = (name: string) => {
@@ -80,7 +80,7 @@ const ToolInvocationDisplay = ({
             href={result.link}
             target="_blank"
             rel="noopener noreferrer"
-            className="block rounded-md border border-gray-600 bg-gray-700/30 p-3 transition-all duration-200 hover:border-gray-500 hover:bg-gray-700/50"
+            className="block rounded-md border border-gray-600 bg-gray-700/30 p-3 transition-all duration-200 hover:border-gray-500 hover:bg-gray-700/50 truncate overflow-hidden"
           >
             <div className="text-sm font-medium text-blue-400 hover:text-blue-300">
               {result.title}
@@ -135,7 +135,7 @@ const ToolInvocationDisplay = ({
           </div>
         </div>
       ) : invocation.state === "result" ? (
-        <div className="space-y-3">
+        <div className="space-y-3 overflow-hidden">
           <div>
             <span className="text-xs font-medium text-gray-400">Input:</span>
             <p className="mt-1 text-sm text-gray-300">
@@ -158,7 +158,7 @@ const ReasoningDisplay = ({
   reasoning
 }: {
   reasoning: MessagePart & { type: "reasoning" }
-}) => {
+}): JSX.Element => {
   return (
     <div className="mb-3 rounded-lg border border-gray-600 bg-gray-800/50 p-4">
       <div className="mb-3 flex items-center gap-2">
@@ -246,10 +246,10 @@ export const ChatMessage = ({ parts, role, userName }: ChatMessageProps) => {
 
         {hasToolsOrReasoning && isAI && (
           <div
-            className={`overflow-hidden transition-all duration-300 ease-in-out ${showTools ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+            className={`overflow-hidden transition-all duration-300 ease-in-out ${showTools ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
               }`}
           >
-            <div className="space-y-3 pb-3">
+            <div className="space-y-3 pb-3 max-h-[600px] overflow-y-auto">
               {reasoningParts.map((reasoning, index) => (
                 <ReasoningDisplay key={`reasoning-${index}`} reasoning={reasoning} />
               ))}
