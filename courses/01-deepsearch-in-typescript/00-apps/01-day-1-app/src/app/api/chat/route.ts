@@ -10,6 +10,7 @@ import { env } from "~/env";
 import { model } from "~/models";
 import { auth } from "~/server/auth/index";
 import { searchSerper } from "~/serper";
+import { bulkCrawlWebsites } from "~/server/scraper";
 import { checkRateLimit, addUserRequest, upsertChat } from "~/server/db/queries";
 
 const langfuse = new Langfuse({
@@ -114,21 +115,24 @@ export async function POST(request: Request) {
             langfuseTraceId: trace.id,
           },
         },
-        system: `You are a helpful AI assistant with access to web search capabilities. 
+        system: `You are a helpful AI assistant with web search and scraping capabilities.
 
-When users ask questions that require current information, facts, or recent events, you should use the search web tool to find relevant information.
+WORKFLOW (MANDATORY):
+1. Search for relevant information using searchWeb tool
+2. IMMEDIATELY scrape 4-6 diverse URLs, based on the search results, using scrapePages tool
+3. Provide comprehensive answers based on full article content
+4. Cite sources naturally: [source name](link) using markdown format and never add a raw link to the source.
 
-IMPORTANT GUIDELINES:
-1. Always use the search web tool when users ask about current events, recent news, factual information, or anything that might require up-to-date data
-2. When providing information from search results, ALWAYS cite your sources with inline links using markdown format: [source name](link).
-2.1 NEVER add a raw link to the source, use the markdown citation format instead.
-3. Be thorough in your searches - if a topic is complex, perform multiple searches to gather comprehensive information
-4. Present information clearly and organize it logically
-5. If search results don't provide enough information, acknowledge the limitations and suggest what additional information might be needed
+EXAMPLE CITATION FORMAT:
+"According to [TechCrunch](https://techcrunch.com/article), the latest developments in AI show..."
 
-Example citation format to be ALWAYS used: "According to [TechCrunch](https://techcrunch.com/article), the latest developments in AI show..."
+CRITICAL RULES:
+- ALWAYS scrape after searching - this is mandatory
+- Answer naturally without explaining your process
+- Never use phrases like "Based on scraped data..."
+- Provide direct, confident answers without hesitation or explanation of your process
 
-Remember: Your goal is to provide accurate, current, and well-sourced information to help users with their questions.`,
+The scrapePages tool extracts full article content, removing ads and navigation. Use it to get comprehensive information, not just search snippets.`,
         tools: {
           searchWeb: {
             parameters: z.object({
@@ -160,6 +164,37 @@ Remember: Your goal is to provide accurate, current, and well-sourced informatio
                   title: "Search Error",
                   link: "",
                   snippet: "I encountered an error while searching. Please try again or rephrase your question."
+                }];
+              }
+            },
+          },
+          scrapePages: {
+            parameters: z.object({
+              urls: z.array(z.string()).describe("Array of URLs to scrape for full content"),
+            }),
+            execute: async ({ urls }, { abortSignal }) => {
+              try {
+                const result = await bulkCrawlWebsites({ urls });
+
+                if (!result.success) {
+                  return result.results.map((r) => ({
+                    title: r.url,
+                    link: r.url,
+                    snippet: r.result.success ? r.result.data : `Error: ${(r.result as any).error || 'Unknown error'}`,
+                  }));
+                }
+
+                return result.results.map((r) => ({
+                  title: r.url,
+                  link: r.url,
+                  snippet: r.result.success ? r.result.data : `Error: ${(r.result as any).error || 'Unknown error'}`,
+                }));
+              } catch (error) {
+                console.error("Scraping error:", error);
+                return [{
+                  title: "Scraping Error",
+                  link: "",
+                  snippet: `Failed to scrape pages: ${error instanceof Error ? error.message : "Unknown error"}`,
                 }];
               }
             },
