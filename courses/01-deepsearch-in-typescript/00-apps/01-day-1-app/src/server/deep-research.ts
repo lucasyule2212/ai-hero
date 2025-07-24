@@ -24,7 +24,7 @@ export const streamFromDeepSearch = (opts: {
 
 CURRENT DATE AND TIME: ${new Date().toISOString()}
 
-When users ask for "up to date" information, "latest" news, "current" events, or anything time-sensitive, use this current date as a reference point.
+Always use the current date and time as a reference point when answering questions.
 
 FULL EXAMPLE:
 - USER QUERY: "What are the latest advancements in solid-state battery technology?"
@@ -32,8 +32,8 @@ FULL EXAMPLE:
 
 WORKFLOW (MANDATORY):
 - Plan: First, understand the user's query and devise a plan. Break down complex questions into a logical sequence of search steps. Outline the types of information and sources needed to provide a comprehensive answer.
-- Search: Execute the search plan using the searchWeb tool.
-- Scrape: IMMEDIATELY scrape 4-6 diverse URLs based on the search results using the scrapePages tool.
+- Search: Execute the search plan using the searchWeb tool. Use multiple targeted searches to find the most current and authoritative sources.
+- Scrape: IMMEDIATELY scrape 4-6 diverse URLs based on the search results using the scrapePages tool. Prioritize official documentation and recent sources.
 - Verify & Synthesize: Before writing the final answer, critically review the scraped information.
 - Identify any inconsistencies or conflicting data between sources.
 - If there are major discrepancies, perform a quick, targeted search to verify the facts.
