@@ -117,6 +117,10 @@ export async function POST(request: Request) {
         },
         system: `You are a helpful AI assistant with web search and scraping capabilities.
 
+CURRENT DATE AND TIME: ${new Date().toISOString()}
+
+When users ask for "up to date" information, "latest" news, "current" events, or anything time-sensitive, use this current date as a reference point. Prioritize information that is recent relative to this date.
+
 WORKFLOW (MANDATORY):
 1. Search for relevant information using searchWeb tool
 2. IMMEDIATELY scrape 4-6 diverse URLs, based on the search results, using scrapePages tool
@@ -131,6 +135,7 @@ CRITICAL RULES:
 - Answer naturally without explaining your process
 - Never use phrases like "Based on scraped data..."
 - Provide direct, confident answers without hesitation or explanation of your process
+- When discussing time-sensitive information, reference the current date and mention how recent the information is
 
 The scrapePages tool extracts full article content, removing ads and navigation. Use it to get comprehensive information, not just search snippets.`,
         tools: {
@@ -146,24 +151,27 @@ The scrapePages tool extracts full article content, removing ads and navigation.
                 );
 
                 if (!results || !results.organic || results.organic.length === 0) {
-                  return [{
-                    title: "No results found",
-                    link: "",
-                    snippet: "No search results were found for this query. Please try rephrasing your search or ask a different question."
-                  }];
+                                  return [{
+                  title: "No results found",
+                  link: "",
+                  snippet: "No search results were found for this query. Please try rephrasing your search or ask a different question.",
+                  date: "N/A"
+                }];
                 }
 
                 return results.organic.map((result) => ({
                   title: result.title ?? "Untitled",
                   link: result.link ?? "",
                   snippet: result.snippet ?? "No description available",
+                  date: result.date ? `Published: ${result.date}` : "Date not available",
                 }));
               } catch (error) {
                 console.error("Search error:", error);
                 return [{
                   title: "Search Error",
                   link: "",
-                  snippet: "I encountered an error while searching. Please try again or rephrase your question."
+                  snippet: "I encountered an error while searching. Please try again or rephrase your question.",
+                  date: "N/A"
                 }];
               }
             },
@@ -188,6 +196,7 @@ The scrapePages tool extracts full article content, removing ads and navigation.
                   title: r.url,
                   link: r.url,
                   snippet: r.result.success ? r.result.data : `Error: ${(r.result as any).error || 'Unknown error'}`,
+                  date: "Scraped content - publication date may be in content",
                 }));
               } catch (error) {
                 console.error("Scraping error:", error);
@@ -195,6 +204,7 @@ The scrapePages tool extracts full article content, removing ads and navigation.
                   title: "Scraping Error",
                   link: "",
                   snippet: `Failed to scrape pages: ${error instanceof Error ? error.message : "Unknown error"}`,
+                  date: "N/A"
                 }];
               }
             },

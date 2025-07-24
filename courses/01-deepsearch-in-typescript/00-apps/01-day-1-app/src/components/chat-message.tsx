@@ -85,8 +85,13 @@ const ToolInvocationDisplay = ({
             <div className="text-sm font-medium text-blue-400 hover:text-blue-300">
               {result.title}
             </div>
-            <div className="mt-1 text-xs text-gray-400">
-              {result.link}
+            <div className="mt-1 flex items-center justify-between text-xs text-gray-400">
+              <span className="truncate">{result.link}</span>
+              {result.date && result.date !== "N/A" && (
+                <span className="ml-2 flex-shrink-0 text-green-400">
+                  {result.date}
+                </span>
+              )}
             </div>
             {result.snippet && (
               <div className="mt-2 text-xs text-gray-300 line-clamp-2">
