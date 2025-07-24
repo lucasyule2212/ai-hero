@@ -7,7 +7,7 @@ import { Langfuse } from "langfuse";
 import { env } from "~/env";
 import { auth } from "~/server/auth/index";
 import { checkRateLimit, addUserRequest, upsertChat } from "~/server/db/queries";
-import { streamFromDeepSearch } from "~/server/deep-search";
+import { streamFromDeepSearch } from "~/server/deep-research";
 
 const langfuse = new Langfuse({
   environment: env.NODE_ENV,

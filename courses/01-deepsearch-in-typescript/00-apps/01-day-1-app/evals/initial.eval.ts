@@ -1,5 +1,5 @@
 import { evalite } from "evalite";
-import { askDeepSearch } from "~/server/deep-search";
+import { askDeepSearch } from "~/server/deep-research";
 import type { Message } from "ai";
 
 evalite("Deep Search Eval", {
