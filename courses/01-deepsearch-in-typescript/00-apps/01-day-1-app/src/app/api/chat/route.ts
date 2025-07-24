@@ -5,10 +5,16 @@ import {
   appendResponseMessages,
 } from "ai";
 import { z } from "zod";
+import { Langfuse } from "langfuse";
+import { env } from "~/env";
 import { model } from "~/models";
 import { auth } from "~/server/auth/index";
 import { searchSerper } from "~/serper";
 import { checkRateLimit, addUserRequest, upsertChat } from "~/server/db/queries";
+
+const langfuse = new Langfuse({
+  environment: env.NODE_ENV,
+});
 
 export const maxDuration = 60;
 
@@ -51,11 +57,18 @@ export async function POST(request: Request) {
   // Use the provided chatId
   const finalChatId = chatId;
   
+  // Create Langfuse trace with session and user information
+  const trace = langfuse.trace({
+    sessionId: finalChatId,
+    name: "chat",
+    userId: session.user.id,
+  });
+  
   // Only generate a title for new chats
   let chatTitle = "New Chat";
   if (isNewChat) {
     const firstUserMessage = messages.find(msg => msg.role === "user");
-    chatTitle = firstUserMessage?.content?.slice(0, 50) || "New Chat";
+    chatTitle = firstUserMessage?.content?.slice(0, 50) ?? "New Chat";
   }
 
   // Create the chat immediately with the user's message
@@ -94,7 +107,13 @@ export async function POST(request: Request) {
         model,
         messages,
         maxSteps: 10,
-        experimental_telemetry: { isEnabled: true },
+        experimental_telemetry: {
+          isEnabled: true,
+          functionId: "agent",
+          metadata: {
+            langfuseTraceId: trace.id,
+          },
+        },
         system: `You are a helpful AI assistant with access to web search capabilities. 
 
 When users ask questions that require current information, facts, or recent events, you should use the search web tool to find relevant information.
@@ -131,9 +150,9 @@ Remember: Your goal is to provide accurate, current, and well-sourced informatio
                 }
 
                 return results.organic.map((result) => ({
-                  title: result.title || "Untitled",
-                  link: result.link || "",
-                  snippet: result.snippet || "No description available",
+                  title: result.title ?? "Untitled",
+                  link: result.link ?? "",
+                  snippet: result.snippet ?? "No description available",
                 }));
               } catch (error) {
                 console.error("Search error:", error);
@@ -146,7 +165,7 @@ Remember: Your goal is to provide accurate, current, and well-sourced informatio
             },
           },
         },
-        onFinish({ text, finishReason, usage, response }) {
+        onFinish: async ({ text: _text, finishReason: _finishReason, usage: _usage, response }) => {
           const responseMessages = response.messages;
 
           const updatedMessages = appendResponseMessages({
@@ -175,6 +194,9 @@ Remember: Your goal is to provide accurate, current, and well-sourced informatio
           upsertChat(upsertOptions).catch((error) => {
             console.error("Failed to save chat to database:", error);
           });
+          
+          // Flush the trace to Langfuse
+          await langfuse.flushAsync();
         },
       });
 
