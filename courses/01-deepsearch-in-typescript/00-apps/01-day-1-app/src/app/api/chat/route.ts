@@ -25,8 +25,29 @@ export async function POST(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  // Create initial trace without sessionId
+  const trace = langfuse.trace({
+    name: "chat",
+    userId: session.user.id,
+  });
+
   // Check rate limit before processing the request
+  const rateLimitSpan = trace.span({
+    name: "check-rate-limit",
+    input: {
+      userId: session.user.id,
+    },
+  });
+
   const rateLimit = await checkRateLimit(session.user.id);
+  
+  rateLimitSpan.end({
+    output: {
+      allowed: rateLimit.allowed,
+      remaining: rateLimit.remaining,
+      limit: rateLimit.limit,
+    },
+  });
   
   if (!rateLimit.allowed) {
     return new Response(
@@ -58,13 +79,6 @@ export async function POST(request: Request) {
   // Use the provided chatId
   const finalChatId = chatId;
   
-  // Create Langfuse trace with session and user information
-  const trace = langfuse.trace({
-    sessionId: finalChatId,
-    name: "chat",
-    userId: session.user.id,
-  });
-  
   // Only generate a title for new chats
   let chatTitle = "New Chat";
   if (isNewChat) {
@@ -90,7 +104,30 @@ export async function POST(request: Request) {
     initialUpsertOptions.title = chatTitle;
   }
   
+  const initialUpsertSpan = trace.span({
+    name: "initial-chat-upsert",
+    input: {
+      userId: session.user.id,
+      chatId: finalChatId,
+      isNewChat,
+      title: initialUpsertOptions.title,
+      messageCount: messages.length,
+    },
+  });
+
   await upsertChat(initialUpsertOptions);
+
+  initialUpsertSpan.end({
+    output: {
+      success: true,
+      chatId: finalChatId,
+    },
+  });
+
+  // Update trace with sessionId now that we have the chatId
+  trace.update({
+    sessionId: finalChatId,
+  });
 
   return createDataStreamResponse({
     execute: async (dataStream) => {
@@ -102,7 +139,20 @@ export async function POST(request: Request) {
         });
       }
 
+      const addUserRequestSpan = trace.span({
+        name: "add-user-request",
+        input: {
+          userId: session.user.id,
+        },
+      });
+
       await addUserRequest(session.user.id);
+
+      addUserRequestSpan.end({
+        output: {
+          success: true,
+        },
+      });
 
       const result = streamText({
         model,
@@ -236,8 +286,32 @@ The scrapePages tool extracts full article content, removing ads and navigation.
             upsertOptions.title = chatTitle;
           }
 
-          upsertChat(upsertOptions).catch((error) => {
+          const finalUpsertSpan = trace.span({
+            name: "final-chat-upsert",
+            input: {
+              userId: session.user.id,
+              chatId: finalChatId,
+              isNewChat,
+              title: upsertOptions.title,
+              messageCount: updatedMessages.length,
+            },
+          });
+
+          upsertChat(upsertOptions).then(() => {
+            finalUpsertSpan.end({
+              output: {
+                success: true,
+                chatId: finalChatId,
+              },
+            });
+          }).catch((error) => {
             console.error("Failed to save chat to database:", error);
+            finalUpsertSpan.end({
+              output: {
+                success: false,
+                error: error instanceof Error ? error.message : "Unknown error",
+              },
+            });
           });
           
           // Flush the trace to Langfuse
