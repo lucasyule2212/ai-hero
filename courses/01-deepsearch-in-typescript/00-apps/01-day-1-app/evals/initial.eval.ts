@@ -1,7 +1,8 @@
 import { evalite } from "evalite";
 import { askDeepSearch } from "~/server/deep-research";
 import type { Message } from "ai";
-import { Factuality } from "../src/factuality-scorer";
+import { Factuality } from "./scorers/factuality-scorer";
+import { AnswerRelevancy } from "./scorers/answer-relevancy-scorer";
 import { env } from "~/env";
 import { devData } from "./dev";
 import { ciData } from "./ci";
@@ -38,5 +39,6 @@ evalite("Santa Cruz FC Deep Search Factuality Eval - Updated July 2025", {
       },
     },
     Factuality,
+    AnswerRelevancy,
   ],
 });

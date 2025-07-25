@@ -1,7 +1,7 @@
 import { createScorer } from "evalite";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { factualityModel } from "./models";
+import { factualityModel } from "~/models";
 import type { Message } from "ai";
 
 export const checkFactuality = async (opts: {
