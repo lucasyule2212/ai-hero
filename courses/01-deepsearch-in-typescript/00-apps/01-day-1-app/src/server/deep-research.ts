@@ -7,6 +7,7 @@ import { z } from "zod";
 import { model } from "~/models";
 import { searchSerper } from "~/serper";
 import { bulkCrawlWebsites } from "~/server/scraper";
+import { env } from "~/env";
 
 export const streamFromDeepSearch = (opts: {
   messages: Message[];
@@ -59,7 +60,7 @@ The scrapePages tool extracts full article content, removing ads and navigation.
         execute: async ({ query }, { abortSignal }) => {
           try {
             const results = await searchSerper(
-              { q: query, num: 10 },
+              { q: query, num: env.SEARCH_RESULTS_COUNT },
               abortSignal,
             );
 
