@@ -79,7 +79,6 @@ export async function runAgentLoop(
   while (!ctx.shouldStop()) {
     // We choose the next action based on the state of our system
     const nextAction = await getNextAction(ctx);
-    console.log("nextAction", nextAction);
     // We execute the action and update the state of our system
     if (nextAction.type === "search") {
       if (!nextAction.query) {

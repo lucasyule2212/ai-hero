@@ -1,6 +1,7 @@
-import { streamText, type StreamTextResult } from "ai";
+import { streamText, smoothStream, type StreamTextResult } from "ai";
 import { model } from "~/models";
 import type { SystemContext } from "./system-context";
+import { markdownJoinerTransform } from "~/utils/markdown-joiner";
 
 export function answerQuestion(
   userQuestion: string,
@@ -115,6 +116,13 @@ export function answerQuestion(
   return streamText({
     model,
     system: systemPrompt,
+    experimental_transform: [
+      markdownJoinerTransform,
+      smoothStream({
+        delayInMs: 20,
+        chunking: "line",
+      }),
+    ],
     prompt: `
     USER QUESTION: ${userQuestion}
 
