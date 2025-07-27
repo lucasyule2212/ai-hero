@@ -150,7 +150,7 @@ export async function POST(request: Request) {
         },
       });
 
-      const result = streamFromDeepSearch({
+      const result = await streamFromDeepSearch({
         messages,
         telemetry: {
           isEnabled: true,

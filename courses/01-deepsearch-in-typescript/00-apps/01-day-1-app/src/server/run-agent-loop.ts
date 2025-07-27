@@ -3,6 +3,7 @@ import { bulkCrawlWebsites } from "~/server/scraper";
 import { env } from "~/env";
 import { SystemContext, getNextAction } from "./system-context";
 import { answerQuestion } from "./answer-question";
+import type { StreamTextResult } from "ai";
 
 // Reused search function from the existing implementation
 async function searchWeb(query: string) {
@@ -70,16 +71,15 @@ async function scrapeUrls(urls: string[]) {
 
 export async function runAgentLoop(
   userQuestion: string,
-  context?: SystemContext,
-) {
-  // Create context if not provided
-  const ctx = context ?? new SystemContext();
+): Promise<StreamTextResult<{}, string>> {
+  const ctx = new SystemContext();
+
   // A loop that continues until we have an answer
   // or we've taken 10 actions
   while (!ctx.shouldStop()) {
     // We choose the next action based on the state of our system
     const nextAction = await getNextAction(ctx);
-
+    console.log("nextAction", nextAction);
     // We execute the action and update the state of our system
     if (nextAction.type === "search") {
       if (!nextAction.query) {
@@ -113,7 +113,7 @@ export async function runAgentLoop(
         }))
       );
     } else if (nextAction.type === "answer") {
-      return await answerQuestion(userQuestion, ctx, { isFinal: false });
+      return answerQuestion(userQuestion, ctx, { isFinal: false });
     }
 
     // We increment the step counter
@@ -122,5 +122,5 @@ export async function runAgentLoop(
 
   // If we've taken 10 actions and still don't have an answer,
   // we ask the LLM to give its best attempt at an answer
-  return await answerQuestion(userQuestion, ctx, { isFinal: true });
+  return answerQuestion(userQuestion, ctx, { isFinal: true });
 } 
