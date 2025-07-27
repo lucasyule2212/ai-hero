@@ -2,6 +2,7 @@ import { z } from "zod";
 import { generateObject } from "ai";
 import { model } from "~/models";
 import type { Message } from "ai";
+import type { UserLocation } from "~/utils/location";
 
 type QueryResultSearchResult = {
   date: string;
@@ -102,8 +103,14 @@ export class SystemContext {
    */
   private conversationHistory: Message[];
 
-  constructor(conversationHistory: Message[] = []) {
+  /**
+   * The user's location information
+   */
+  private userLocation?: UserLocation;
+
+  constructor(conversationHistory: Message[] = [], userLocation?: UserLocation) {
     this.conversationHistory = conversationHistory;
+    this.userLocation = userLocation;
   }
 
   shouldStop() {
@@ -158,6 +165,22 @@ export class SystemContext {
       })
       .join("\n\n");
   }
+
+  getLocationContext(): string {
+    if (!this.userLocation) {
+      return "";
+    }
+
+    const locationParts = [];
+    if (this.userLocation.city) locationParts.push(this.userLocation.city);
+    if (this.userLocation.country) locationParts.push(this.userLocation.country);
+
+    if (locationParts.length === 0) {
+      return "";
+    }
+
+    return `USER LOCATION: ${locationParts.join(", ")}`;
+  }
 }
 
 export const getNextAction = async (
@@ -191,6 +214,8 @@ export const getNextAction = async (
     Here is the current context of your research:
 
     CURRENT DATE AND TIME: ${new Date().toISOString()}
+
+    ${context.getLocationContext()}
 
     ${context.getQueryHistory()}
 

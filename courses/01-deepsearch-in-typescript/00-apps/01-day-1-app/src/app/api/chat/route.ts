@@ -9,6 +9,7 @@ import { auth } from "~/server/auth/index";
 import { checkRateLimit, addUserRequest, upsertChat, generateChatTitle } from "~/server/db/queries";
 import { streamFromDeepSearch } from "~/server/deep-research";
 import type { OurMessageAnnotation } from "~/server/system-context";
+import { getUserLocation } from "~/utils/location";
 
 const langfuse = new Langfuse({
   environment: env.NODE_ENV,
@@ -21,6 +22,9 @@ export async function POST(request: Request) {
   if (!session || !session.user) {
     return new Response("Unauthorized", { status: 401 });
   }
+
+  // Get user's location
+  const userLocation = getUserLocation(request);
 
   // Create initial trace without sessionId
   const trace = langfuse.trace({
@@ -169,6 +173,7 @@ export async function POST(request: Request) {
         messages,
         langfuseTraceId: trace.id,
         writeMessageAnnotation,
+        userLocation,
         onFinish: async ({ text: _text, finishReason: _finishReason, usage: _usage, response }) => {
           const responseMessages = response.messages;
 

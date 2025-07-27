@@ -4,6 +4,7 @@ import {
 } from "ai";
 import { runAgentLoop } from "./run-agent-loop";
 import type { OurMessageAnnotation } from "./system-context";
+import type { UserLocation } from "~/utils/location";
 
 export const streamFromDeepSearch = async (opts: {
   messages: Message[];
@@ -12,11 +13,12 @@ export const streamFromDeepSearch = async (opts: {
   >[0]["onFinish"];
   langfuseTraceId?: string;
   writeMessageAnnotation?: (annotation: OurMessageAnnotation) => void;
+  userLocation?: UserLocation;
 }): Promise<StreamTextResult<{}, string>> => {
   const conversationHistory = opts.messages;
   const langfuseTraceId = opts.langfuseTraceId ?? undefined;
 
-  return runAgentLoop(conversationHistory, opts.writeMessageAnnotation, langfuseTraceId, opts.onFinish);
+  return runAgentLoop(conversationHistory, opts.writeMessageAnnotation, langfuseTraceId, opts.onFinish, opts.userLocation);
 };
 
 // Used for evals
@@ -27,6 +29,7 @@ export async function askDeepSearch(
     messages,
     onFinish: () => {}, // just a stub
     writeMessageAnnotation: () => {}, // no-op for evals
+    userLocation: undefined, // no location for evals
   });
 
   // Consume the stream - without this,

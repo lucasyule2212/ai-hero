@@ -5,6 +5,7 @@ import { SystemContext, getNextAction, type OurMessageAnnotation } from "./syste
 import { answerQuestion } from "./answer-question";
 import type { StreamTextResult, StreamTextOnFinishCallback } from "ai";
 import type { Message } from "ai";
+import type { UserLocation } from "~/utils/location";
 
 async function searchWeb(query: string) {
   try {
@@ -73,8 +74,9 @@ export async function runAgentLoop(
   writeMessageAnnotation?: (annotation: OurMessageAnnotation) => void,
   langfuseTraceId?: string,
   onFinish?: StreamTextOnFinishCallback<{}>,
+  userLocation?: UserLocation,
 ): Promise<StreamTextResult<{}, string>> {
-  const ctx = new SystemContext(conversationHistory);
+  const ctx = new SystemContext(conversationHistory, userLocation);
 
   // A loop that continues until we have an answer
   // or we've taken 10 actions
