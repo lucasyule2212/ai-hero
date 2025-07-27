@@ -72,6 +72,7 @@ async function scrapeUrls(urls: string[]) {
 export async function runAgentLoop(
   userQuestion: string,
   writeMessageAnnotation?: (annotation: OurMessageAnnotation) => void,
+  langfuseTraceId?: string,
 ): Promise<StreamTextResult<{}, string>> {
   const ctx = new SystemContext();
 
@@ -79,7 +80,7 @@ export async function runAgentLoop(
   // or we've taken 10 actions
   while (!ctx.shouldStop()) {
     // We choose the next action based on the state of our system
-    const nextAction = await getNextAction(ctx);
+    const nextAction = await getNextAction(ctx, langfuseTraceId);
     
     // Send progress update if writeMessageAnnotation is provided
     if (writeMessageAnnotation) {
@@ -122,7 +123,7 @@ export async function runAgentLoop(
         }))
       );
     } else if (nextAction.type === "answer") {
-      return answerQuestion(userQuestion, ctx, { isFinal: false });
+      return answerQuestion(userQuestion, ctx, { isFinal: false }, langfuseTraceId);
     }
 
     // We increment the step counter
@@ -131,5 +132,5 @@ export async function runAgentLoop(
 
   // If we've taken 10 actions and still don't have an answer,
   // we ask the LLM to give its best attempt at an answer
-  return answerQuestion(userQuestion, ctx, { isFinal: true });
+  return answerQuestion(userQuestion, ctx, { isFinal: true }, langfuseTraceId);
 } 

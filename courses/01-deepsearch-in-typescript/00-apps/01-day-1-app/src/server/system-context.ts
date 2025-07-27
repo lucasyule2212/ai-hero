@@ -139,6 +139,7 @@ export class SystemContext {
 
 export const getNextAction = async (
   context: SystemContext,
+  langfuseTraceId?: string,
 ) => {
   const result = await generateObject({
     model,
@@ -168,6 +169,13 @@ export const getNextAction = async (
 
     ${context.getScrapeHistory()}
     `,
+    experimental_telemetry: langfuseTraceId ? {
+      isEnabled: true,
+      functionId: "agent-next-action",
+      metadata: {
+        langfuseTraceId,
+      },
+    } : undefined,
   });
 
   return result.object;

@@ -7,6 +7,7 @@ export function answerQuestion(
   userQuestion: string,
   context: SystemContext,
   options: { isFinal: boolean },
+  langfuseTraceId?: string,
 ): StreamTextResult<{}, string> {
   const systemPrompt = options.isFinal
     ? `You are a knowledgeable friend who happens to be really good at explaining things. Think of yourself as that person everyone turns to when they need something explained clearly – not because you're showing off your expertise, but because you genuinely care about helping people understand.
@@ -123,6 +124,13 @@ export function answerQuestion(
         chunking: "line",
       }),
     ],
+    experimental_telemetry: langfuseTraceId ? {
+      isEnabled: true,
+      functionId: options.isFinal ? "agent-final-answer" : "agent-answer",
+      metadata: {
+        langfuseTraceId,
+      },
+    } : undefined,
     prompt: `
     USER QUESTION: ${userQuestion}
 
