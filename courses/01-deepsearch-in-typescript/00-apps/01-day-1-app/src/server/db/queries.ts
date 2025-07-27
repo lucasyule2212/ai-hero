@@ -2,6 +2,7 @@ import { and, count, eq, gte, desc, asc } from "drizzle-orm";
 import { db } from "./index";
 import { userRequests, users, chats, messages } from "./schema";
 import type { Message } from "ai";
+import type { OurMessageAnnotation } from "~/server/system-context";
 
 const DAILY_REQUEST_LIMIT = 50;
 
@@ -67,7 +68,7 @@ export async function upsertChat(opts: {
   userId: string;
   chatId: string;
   title?: string;
-  messages: Message[];
+  messages: (Message & { annotations?: OurMessageAnnotation[] })[];
 }): Promise<void> {
   const { userId, chatId, title, messages: messageList } = opts;
 
@@ -110,6 +111,7 @@ export async function upsertChat(opts: {
       chatId,
       role: message.role,
       parts: message.parts || [],
+      annotations: message.annotations || null,
       order: index,
     }));
 
@@ -138,6 +140,7 @@ export async function getChat(chatId: string, userId: string) {
       id: messages.id,
       role: messages.role,
       parts: messages.parts,
+      annotations: messages.annotations,
       order: messages.order,
       createdAt: messages.createdAt,
     })
@@ -151,6 +154,7 @@ export async function getChat(chatId: string, userId: string) {
       id: msg.id,
       role: msg.role,
       parts: msg.parts,
+      annotations: msg.annotations,
     })),
   };
 }

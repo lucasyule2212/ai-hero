@@ -3,7 +3,7 @@ import { bulkCrawlWebsites } from "~/server/scraper";
 import { env } from "~/env";
 import { SystemContext, getNextAction, type OurMessageAnnotation } from "./system-context";
 import { answerQuestion } from "./answer-question";
-import type { StreamTextResult } from "ai";
+import type { StreamTextResult, StreamTextOnFinishCallback } from "ai";
 import type { Message } from "ai";
 
 async function searchWeb(query: string) {
@@ -72,6 +72,7 @@ export async function runAgentLoop(
   conversationHistory: Message[],
   writeMessageAnnotation?: (annotation: OurMessageAnnotation) => void,
   langfuseTraceId?: string,
+  onFinish?: StreamTextOnFinishCallback<{}>,
 ): Promise<StreamTextResult<{}, string>> {
   const ctx = new SystemContext(conversationHistory);
 
@@ -122,7 +123,7 @@ export async function runAgentLoop(
         }))
       );
     } else if (nextAction.type === "answer") {
-      return answerQuestion( ctx, { isFinal: false }, langfuseTraceId);
+      return answerQuestion(ctx, { isFinal: false }, langfuseTraceId, onFinish);
     }
 
     // We increment the step counter
@@ -131,5 +132,5 @@ export async function runAgentLoop(
 
   // If we've taken 10 actions and still don't have an answer,
   // we ask the LLM to give its best attempt at an answer
-  return answerQuestion(ctx, { isFinal: true }, langfuseTraceId);
+  return answerQuestion(ctx, { isFinal: true }, langfuseTraceId, onFinish);
 } 

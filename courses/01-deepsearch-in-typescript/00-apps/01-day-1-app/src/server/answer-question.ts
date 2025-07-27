@@ -1,4 +1,4 @@
-import { streamText, smoothStream, type StreamTextResult } from "ai";
+import { streamText, smoothStream, type StreamTextResult, type StreamTextOnFinishCallback } from "ai";
 import { model } from "~/models";
 import type { SystemContext } from "./system-context";
 import { markdownJoinerTransform } from "~/utils/markdown-joiner";
@@ -7,6 +7,7 @@ export function answerQuestion(
   context: SystemContext,
   options: { isFinal: boolean },
   langfuseTraceId?: string,
+  onFinish?: StreamTextOnFinishCallback<{}>,
 ): StreamTextResult<{}, string> {
   const systemPrompt = options.isFinal
     ? `You are a knowledgeable friend who happens to be really good at explaining things. Think of yourself as that person everyone turns to when they need something explained clearly – not because you're showing off your expertise, but because you genuinely care about helping people understand.
@@ -130,6 +131,7 @@ export function answerQuestion(
         langfuseTraceId,
       },
     } : undefined,
+    onFinish,
     prompt: `
     Based on the research conducted, please provide a comprehensive answer to the user's question.
 

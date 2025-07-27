@@ -32,6 +32,7 @@ export default async function HomePage({
         id: msg.id,
         role: msg.role as "user" | "assistant",
         parts: msg.parts as Message["parts"],
+        annotations: msg.annotations as any,
         content: "",
       })) || [];
     }

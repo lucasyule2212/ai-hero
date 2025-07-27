@@ -8,6 +8,7 @@ import { env } from "~/env";
 import { auth } from "~/server/auth/index";
 import { checkRateLimit, addUserRequest, upsertChat } from "~/server/db/queries";
 import { streamFromDeepSearch } from "~/server/deep-research";
+import type { OurMessageAnnotation } from "~/server/system-context";
 
 const langfuse = new Langfuse({
   environment: env.NODE_ENV,
@@ -88,11 +89,11 @@ export async function POST(request: Request) {
     userId: string;
     chatId: string;
     title?: string;
-    messages: Message[];
+    messages: (Message & { annotations?: OurMessageAnnotation[] })[];
   } = {
     userId: session.user.id,
     chatId: finalChatId,
-    messages: messages,
+    messages: messages as (Message & { annotations?: OurMessageAnnotation[] })[],
   };
   
   // Only include title for new chats
@@ -150,12 +151,22 @@ export async function POST(request: Request) {
         },
       });
 
+      // Collect annotations in memory
+      const annotations: OurMessageAnnotation[] = [];
+
+      const writeMessageAnnotation = (
+        annotation: OurMessageAnnotation,
+      ) => {
+        // Save the annotation in-memory
+        annotations.push(annotation);
+        // Send it to the client
+        dataStream.writeMessageAnnotation(annotation);
+      };
+
       const result = await streamFromDeepSearch({
         messages,
         langfuseTraceId: trace.id,
-        writeMessageAnnotation: (annotation) => {
-          dataStream.writeMessageAnnotation(annotation);
-        },
+        writeMessageAnnotation,
         onFinish: async ({ text: _text, finishReason: _finishReason, usage: _usage, response }) => {
           const responseMessages = response.messages;
 
@@ -164,17 +175,23 @@ export async function POST(request: Request) {
             responseMessages,
           });
 
+          // Get the last message and add annotations to it
+          const lastMessage = updatedMessages[updatedMessages.length - 1];
+          if (lastMessage && annotations.length > 0) {
+            (lastMessage as any).annotations = annotations;
+          }
+
           // Save the complete conversation to the database
           // Only pass title for new chats to prevent unnecessary updates
           const upsertOptions: {
             userId: string;
             chatId: string;
             title?: string;
-            messages: Message[];
+            messages: (Message & { annotations?: OurMessageAnnotation[] })[];
           } = {
             userId: session.user.id,
             chatId: finalChatId,
-            messages: updatedMessages,
+            messages: updatedMessages as (Message & { annotations?: OurMessageAnnotation[] })[],
           };
           
           // Only include title for new chats
@@ -190,6 +207,7 @@ export async function POST(request: Request) {
               isNewChat,
               title: upsertOptions.title,
               messageCount: updatedMessages.length,
+              annotationCount: annotations.length,
             },
           });
 

@@ -16,7 +16,7 @@ export const streamFromDeepSearch = async (opts: {
   const conversationHistory = opts.messages;
   const langfuseTraceId = opts.langfuseTraceId ?? undefined;
 
-  return runAgentLoop(conversationHistory, opts.writeMessageAnnotation, langfuseTraceId);
+  return runAgentLoop(conversationHistory, opts.writeMessageAnnotation, langfuseTraceId, opts.onFinish);
 };
 
 // Used for evals
