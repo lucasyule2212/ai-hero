@@ -5,6 +5,7 @@ import {
   type StreamTextResult,
 } from "ai";
 import { runAgentLoop } from "./run-agent-loop";
+import type { OurMessageAnnotation } from "./system-context";
 
 export const streamFromDeepSearch = async (opts: {
   messages: Message[];
@@ -12,12 +13,13 @@ export const streamFromDeepSearch = async (opts: {
     typeof streamText
   >[0]["onFinish"];
   telemetry: TelemetrySettings;
+  writeMessageAnnotation?: (annotation: OurMessageAnnotation) => void;
 }): Promise<StreamTextResult<{}, string>> => {
   // Extract the user's question from the last message
   const lastMessage = opts.messages[opts.messages.length - 1];
   const userQuestion = lastMessage?.content || "";
 
-  return runAgentLoop(userQuestion);
+  return runAgentLoop(userQuestion, opts.writeMessageAnnotation);
 };
 
 export async function askDeepSearch(
@@ -29,6 +31,7 @@ export async function askDeepSearch(
     telemetry: {
       isEnabled: false,
     },
+    writeMessageAnnotation: () => {}, // no-op for evals
   });
 
   // Consume the stream - without this,

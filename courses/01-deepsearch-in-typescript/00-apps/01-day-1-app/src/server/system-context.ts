@@ -33,12 +33,22 @@ export interface AnswerAction {
   type: "answer";
 }
 
-export type Action =
-  | SearchAction
-  | ScrapeAction
-  | AnswerAction;
+export type Action = z.infer<typeof actionSchema>;
+
+export type OurMessageAnnotation = {
+  type: "NEW_ACTION";
+  action: Action;
+};
 
 export const actionSchema = z.object({
+  title: z
+    .string()
+    .describe(
+      "The title of the action, to be displayed in the UI. Be extremely concise. 'Searching Saka's injury history', 'Checking HMRC industrial action', 'Comparing toaster ovens'",
+    ),
+  reasoning: z
+    .string()
+    .describe("The reason you chose this step."),
   type: z
     .enum(["search", "scrape", "answer"])
     .describe(
@@ -133,7 +143,9 @@ export const getNextAction = async (
   const result = await generateObject({
     model,
     schema: actionSchema,
-    system: `You are a helpful AI assistant with web search and scraping capabilities. Your goal is to provide comprehensive, accurate, and up-to-date answers by planning, executing, and verifying your work.`,
+    system: `You are a helpful AI assistant with web search and scraping capabilities. Your goal is to provide comprehensive, accurate, and up-to-date answers by planning, executing, and verifying your work.
+
+    When choosing your next action, provide a concise title that describes what you're doing and clear reasoning for why you chose this step.`,
     prompt: `
     You can perform three types of actions:
     1. SEARCH: Search the web for more information using a specific query
@@ -141,6 +153,10 @@ export const getNextAction = async (
     3. ANSWER: Provide the final answer to the user's question and complete the process
 
     Based on the current context, determine the next action to take. If you have enough information to provide a comprehensive answer, choose 'answer'. If you need more information, choose 'search' or 'scrape' as appropriate.
+
+    For the title field, provide a very concise description of what you're doing (e.g., "Searching for latest news", "Checking official website", "Analyzing search results").
+
+    For the reasoning field, explain why you chose this specific action based on the current context and what information you still need.
 
     Always use the current date and time as a reference point when answering questions.
 

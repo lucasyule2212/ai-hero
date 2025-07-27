@@ -1,7 +1,7 @@
 import { searchSerper } from "~/serper";
 import { bulkCrawlWebsites } from "~/server/scraper";
 import { env } from "~/env";
-import { SystemContext, getNextAction } from "./system-context";
+import { SystemContext, getNextAction, type OurMessageAnnotation } from "./system-context";
 import { answerQuestion } from "./answer-question";
 import type { StreamTextResult } from "ai";
 
@@ -71,6 +71,7 @@ async function scrapeUrls(urls: string[]) {
 
 export async function runAgentLoop(
   userQuestion: string,
+  writeMessageAnnotation?: (annotation: OurMessageAnnotation) => void,
 ): Promise<StreamTextResult<{}, string>> {
   const ctx = new SystemContext();
 
@@ -79,6 +80,15 @@ export async function runAgentLoop(
   while (!ctx.shouldStop()) {
     // We choose the next action based on the state of our system
     const nextAction = await getNextAction(ctx);
+    
+    // Send progress update if writeMessageAnnotation is provided
+    if (writeMessageAnnotation) {
+      writeMessageAnnotation({
+        type: "NEW_ACTION",
+        action: nextAction,
+      } satisfies OurMessageAnnotation);
+    }
+    
     // We execute the action and update the state of our system
     if (nextAction.type === "search") {
       if (!nextAction.query) {
