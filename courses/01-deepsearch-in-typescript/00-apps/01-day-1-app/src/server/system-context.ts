@@ -4,31 +4,22 @@ import { model } from "~/models";
 import type { Message } from "ai";
 import type { UserLocation } from "~/utils/location";
 
-type QueryResultSearchResult = {
+type SearchResult = {
   date: string;
   title: string;
   url: string;
   snippet: string;
+  scrapedContent: string;
 };
 
-type QueryResult = {
+type SearchHistoryEntry = {
   query: string;
-  results: QueryResultSearchResult[];
-};
-
-type ScrapeResult = {
-  url: string;
-  result: string;
+  results: SearchResult[];
 };
 
 export interface SearchAction {
   type: "search";
   query: string;
-}
-
-export interface ScrapeAction {
-  type: "scrape";
-  urls: string[];
 }
 
 export interface AnswerAction {
@@ -52,11 +43,10 @@ export const actionSchema = z.object({
     .string()
     .describe("The reason you chose this step."),
   type: z
-    .enum(["search", "scrape", "answer"])
+    .enum(["search", "answer"])
     .describe(
       `The type of action to take.
-      - 'search': Search the web for more information.
-      - 'scrape': Scrape a URL.
+      - 'search': Search the web for more information and automatically scrape the found URLs for detailed content.
       - 'answer': Answer the user's question and complete the loop.`,
     ),
   query: z
@@ -65,21 +55,18 @@ export const actionSchema = z.object({
       "The query to search the web for. Required if type is 'search'.",
     )
     .optional(),
-  urls: z
-    .array(z.string())
-    .describe(
-      "The URLs to scrape from. Required if type is 'scrape'.",
-    )
-    .optional(),
 });
 
-const toQueryResult = (
-  query: QueryResultSearchResult,
+const toSearchResult = (
+  result: SearchResult,
 ) =>
   [
-    `### ${query.date} - ${query.title}`,
-    query.url,
-    query.snippet,
+    `### ${result.date} - ${result.title}`,
+    result.url,
+    result.snippet,
+    `<scrape_result>`,
+    result.scrapedContent,
+    `</scrape_result>`,
   ].join("\n\n");
 
 export class SystemContext {
@@ -89,14 +76,9 @@ export class SystemContext {
   private step = 0;
 
   /**
-   * The history of all queries searched
+   * The history of all searches with their scraped content
    */
-  private queryHistory: QueryResult[] = [];
-
-  /**
-   * The history of all URLs scraped
-   */
-  private scrapeHistory: ScrapeResult[] = [];
+  private searchHistory: SearchHistoryEntry[] = [];
 
   /**
    * The conversation history for context
@@ -114,40 +96,23 @@ export class SystemContext {
   }
 
   shouldStop() {
-    return this.step >= 10;
+    return this.step >= 5;
   }
 
   incrementStep() {
     this.step++;
   }
 
-  reportQueries(queries: QueryResult[]) {
-    this.queryHistory.push(...queries);
+  reportSearch(search: SearchHistoryEntry) {
+    this.searchHistory.push(search);
   }
 
-  reportScrapes(scrapes: ScrapeResult[]) {
-    this.scrapeHistory.push(...scrapes);
-  }
-
-  getQueryHistory(): string {
-    return this.queryHistory
-      .map((query) =>
+  getSearchHistory(): string {
+    return this.searchHistory
+      .map((search) =>
         [
-          `## Query: "${query.query}"`,
-          ...query.results.map(toQueryResult),
-        ].join("\n\n"),
-      )
-      .join("\n\n");
-  }
-
-  getScrapeHistory(): string {
-    return this.scrapeHistory
-      .map((scrape) =>
-        [
-          `## Scrape: "${scrape.url}"`,
-          `<scrape_result>`,
-          scrape.result,
-          `</scrape_result>`,
+          `## Query: "${search.query}"`,
+          ...search.results.map(toSearchResult),
         ].join("\n\n"),
       )
       .join("\n\n");
@@ -194,12 +159,11 @@ export const getNextAction = async (
 
     When choosing your next action, provide a concise title that describes what you're doing and clear reasoning for why you chose this step.`,
     prompt: `
-    You can perform three types of actions:
-    1. SEARCH: Search the web for more information using a specific query
-    2. SCRAPE: Scrape specific URLs to get detailed content
-    3. ANSWER: Provide the final answer to the user's question and complete the process
+    You can perform two types of actions:
+    1. SEARCH: Search the web for more information using a specific query and automatically scrape the found URLs for detailed content
+    2. ANSWER: Provide the final answer to the user's question and complete the process
 
-    Based on the current context, determine the next action to take. If you have enough information to provide a comprehensive answer, choose 'answer'. If you need more information, choose 'search' or 'scrape' as appropriate.
+    Based on the current context, determine the next action to take. If you have enough information to provide a comprehensive answer, choose 'answer'. If you need more information, choose 'search'.
 
     For the title field, provide a very concise description of what you're doing (e.g., "Searching for latest news", "Checking official website", "Analyzing search results").
 
@@ -217,9 +181,7 @@ export const getNextAction = async (
 
     ${context.getLocationContext()}
 
-    ${context.getQueryHistory()}
-
-    ${context.getScrapeHistory()}
+    ${context.getSearchHistory()}
     `,
     experimental_telemetry: langfuseTraceId ? {
       isEnabled: true,

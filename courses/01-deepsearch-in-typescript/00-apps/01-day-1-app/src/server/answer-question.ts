@@ -147,9 +147,7 @@ export function answerQuestion(
 
     Here is the research context:
 
-    ${context.getQueryHistory()}
-
-    ${context.getScrapeHistory()}
+    ${context.getSearchHistory()}
 `,
   });
 } 

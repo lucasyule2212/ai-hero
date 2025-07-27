@@ -1,70 +1,59 @@
 import { searchSerper } from "~/serper";
 import { bulkCrawlWebsites } from "~/server/scraper";
-import { env } from "~/env";
 import { SystemContext, getNextAction, type OurMessageAnnotation } from "./system-context";
 import { answerQuestion } from "./answer-question";
 import type { StreamTextResult, StreamTextOnFinishCallback } from "ai";
 import type { Message } from "ai";
 import type { UserLocation } from "~/utils/location";
 
-async function searchWeb(query: string) {
+async function searchAndScrapeWeb(query: string) {
   try {
+    // Search for results with reduced count to manage context window
     const results = await searchSerper(
-      { q: query, num: env.SEARCH_RESULTS_COUNT },
+      { q: query, num: 3 }, // Reduced from default to manage context window
       undefined, // no abort signal in this context
     );
 
     if (!results || !results.organic || results.organic.length === 0) {
-      return [{
-        title: "No results found",
-        link: "",
-        snippet: "No search results were found for this query. Please try rephrasing your search or ask a different question.",
-        date: "N/A"
-      }];
+          return [{
+      title: "No results found",
+      url: "",
+      snippet: "No search results were found for this query. Please try rephrasing your search or ask a different question.",
+      date: "N/A",
+      scrapedContent: "No content available"
+    }];
     }
 
-    return results.organic.map((result) => ({
+    // Extract URLs from search results
+    const urls = results.organic
+      .map(result => result.link)
+      .filter(link => link && link.length > 0);
+
+    // Scrape all URLs in parallel
+    let scrapedContents: string[] = [];
+    if (urls.length > 0) {
+      const scrapeResult = await bulkCrawlWebsites({ urls });
+      scrapedContents = scrapeResult.results.map((r) => 
+        r.result.success ? r.result.data : `Error: ${(r.result as any).error || 'Unknown error'}`
+      );
+    }
+
+    // Combine search results with scraped content
+    return results.organic.map((result, index) => ({
       title: result.title ?? "Untitled",
-      link: result.link ?? "",
+      url: result.link ?? "",
       snippet: result.snippet ?? "No description available",
       date: result.date ? `Published: ${result.date}` : "Date not available",
+      scrapedContent: scrapedContents[index] || "Failed to scrape content"
     }));
   } catch (error) {
-    console.error("Search error:", error);
+    console.error("Search and scrape error:", error);
     return [{
       title: "Search Error",
-      link: "",
+      url: "",
       snippet: "I encountered an error while searching. Please try again or rephrase your question.",
-      date: "N/A"
-    }];
-  }
-}
-
-async function scrapeUrls(urls: string[]) {
-  try {
-    const result = await bulkCrawlWebsites({ urls });
-
-    if (!result.success) {
-      return result.results.map((r) => ({
-        title: r.url,
-        link: r.url,
-        snippet: r.result.success ? r.result.data : `Error: ${(r.result as any).error || 'Unknown error'}`,
-      }));
-    }
-
-    return result.results.map((r) => ({
-      title: r.url,
-      link: r.url,
-      snippet: r.result.success ? r.result.data : `Error: ${(r.result as any).error || 'Unknown error'}`,
-      date: "Scraped content - publication date may be in content",
-    }));
-  } catch (error) {
-    console.error("Scraping error:", error);
-    return [{
-      title: "Scraping Error",
-      link: "",
-      snippet: `Failed to scrape pages: ${error instanceof Error ? error.message : "Unknown error"}`,
-      date: "N/A"
+      date: "N/A",
+      scrapedContent: "Error occurred during search and scrape operation"
     }];
   }
 }
@@ -79,7 +68,7 @@ export async function runAgentLoop(
   const ctx = new SystemContext(conversationHistory, userLocation);
 
   // A loop that continues until we have an answer
-  // or we've taken 10 actions
+  // or we've taken 5 actions
   while (!ctx.shouldStop()) {
     // We choose the next action based on the state of our system
     const nextAction = await getNextAction(ctx, langfuseTraceId);
@@ -100,30 +89,11 @@ export async function runAgentLoop(
         continue;
       }
       
-      const searchResults = await searchWeb(nextAction.query);
-      ctx.reportQueries([{
+      const searchResults = await searchAndScrapeWeb(nextAction.query);
+      ctx.reportSearch({
         query: nextAction.query,
-        results: searchResults.map(result => ({
-          date: result.date,
-          title: result.title,
-          url: result.link,
-          snippet: result.snippet,
-        })),
-      }]);
-    } else if (nextAction.type === "scrape") {
-      if (!nextAction.urls || nextAction.urls.length === 0) {
-        console.error("Scrape action missing URLs");
-        ctx.incrementStep();
-        continue;
-      }
-      
-      const scrapeResults = await scrapeUrls(nextAction.urls);
-      ctx.reportScrapes(
-        scrapeResults.map((result) => ({
-          url: result.link,
-          result: result.snippet,
-        }))
-      );
+        results: searchResults,
+      });
     } else if (nextAction.type === "answer") {
       return answerQuestion(ctx, { isFinal: false }, langfuseTraceId, onFinish);
     }
@@ -132,7 +102,6 @@ export async function runAgentLoop(
     ctx.incrementStep();
   }
 
-  // If we've taken 10 actions and still don't have an answer,
-  // we ask the LLM to give its best attempt at an answer
+  // If we've taken 5 actions, we need to provide an answer
   return answerQuestion(ctx, { isFinal: true }, langfuseTraceId, onFinish);
 } 
