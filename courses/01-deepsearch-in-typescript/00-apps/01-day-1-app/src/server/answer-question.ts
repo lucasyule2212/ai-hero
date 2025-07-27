@@ -4,7 +4,6 @@ import type { SystemContext } from "./system-context";
 import { markdownJoinerTransform } from "~/utils/markdown-joiner";
 
 export function answerQuestion(
-  userQuestion: string,
   context: SystemContext,
   options: { isFinal: boolean },
   langfuseTraceId?: string,
@@ -132,11 +131,13 @@ export function answerQuestion(
       },
     } : undefined,
     prompt: `
-    USER QUESTION: ${userQuestion}
-
     Based on the research conducted, please provide a comprehensive answer to the user's question.
 
     Please provide a well-structured, comprehensive answer that synthesizes the information from all sources. Use **bold text** for important facts and inline markdown citations for all sources.
+
+    Here is the conversation history for context:
+
+    ${context.getConversationHistory()}
 
     Here is the research context:
 

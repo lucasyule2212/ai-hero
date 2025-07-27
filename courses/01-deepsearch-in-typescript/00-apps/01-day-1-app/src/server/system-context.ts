@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { generateObject } from "ai";
 import { model } from "~/models";
+import type { Message } from "ai";
 
 type QueryResultSearchResult = {
   date: string;
@@ -96,6 +97,15 @@ export class SystemContext {
    */
   private scrapeHistory: ScrapeResult[] = [];
 
+  /**
+   * The conversation history for context
+   */
+  private conversationHistory: Message[];
+
+  constructor(conversationHistory: Message[] = []) {
+    this.conversationHistory = conversationHistory;
+  }
+
   shouldStop() {
     return this.step >= 10;
   }
@@ -135,6 +145,19 @@ export class SystemContext {
       )
       .join("\n\n");
   }
+
+  getConversationHistory(): string {
+    if (this.conversationHistory.length === 0) {
+      return "";
+    }
+
+    return this.conversationHistory
+      .map((message) => {
+        const role = message.role === "user" ? "USER" : "ASSISTANT";
+        return `${role}: ${message.content}`;
+      })
+      .join("\n\n");
+  }
 }
 
 export const getNextAction = async (
@@ -160,6 +183,10 @@ export const getNextAction = async (
     For the reasoning field, explain why you chose this specific action based on the current context and what information you still need.
 
     Always use the current date and time as a reference point when answering questions.
+
+    Here is the conversation history for context:
+
+    ${context.getConversationHistory()}
 
     Here is the current context of your research:
 

@@ -13,13 +13,10 @@ export const streamFromDeepSearch = async (opts: {
   langfuseTraceId?: string;
   writeMessageAnnotation?: (annotation: OurMessageAnnotation) => void;
 }): Promise<StreamTextResult<{}, string>> => {
-  // Extract the user's question from the last message
-  const lastMessage = opts.messages[opts.messages.length - 1];
-  const userQuestion = lastMessage?.content || "";
-
+  const conversationHistory = opts.messages;
   const langfuseTraceId = opts.langfuseTraceId ?? undefined;
 
-  return runAgentLoop(userQuestion, opts.writeMessageAnnotation, langfuseTraceId);
+  return runAgentLoop(conversationHistory, opts.writeMessageAnnotation, langfuseTraceId);
 };
 
 // Used for evals
