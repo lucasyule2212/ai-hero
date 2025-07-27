@@ -52,15 +52,22 @@ export const ReasoningSteps = ({
                         {annotation.action.reasoning}
                       </Markdown>
                     </div>
-                    {annotation.action.type ===
-                      "search" && (
-                        <div className="mt-2 flex items-center gap-2 text-sm text-gray-400">
-                          <Search className="size-4" />
-                          <span>
-                            {annotation.action.query}
-                          </span>
+                    {annotation.action.type === "continue" && annotation.queryPlan && (
+                      <div className="mt-2 space-y-2">
+                        <div className="text-sm text-gray-400">
+                          <strong>Plan:</strong> {annotation.queryPlan.plan}
                         </div>
-                      )}
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-gray-300">Queries:</div>
+                          {annotation.queryPlan.queries.map((query, queryIndex) => (
+                            <div key={queryIndex} className="flex items-center gap-2 text-sm text-gray-400">
+                              <Search className="size-4" />
+                              <span>{query}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

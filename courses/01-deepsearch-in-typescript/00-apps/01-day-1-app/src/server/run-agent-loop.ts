@@ -3,6 +3,7 @@ import { bulkCrawlWebsites } from "~/server/scraper";
 import { SystemContext, getNextAction, type OurMessageAnnotation } from "./system-context";
 import { answerQuestion } from "./answer-question";
 import { summarizeURL } from "~/server/summarizer";
+import { queryRewriter } from "./query-rewriter";
 import { env } from "~/env";
 import type { StreamTextResult, StreamTextOnFinishCallback } from "ai";
 import type { Message } from "ai";
@@ -97,35 +98,93 @@ export async function runAgentLoop(
 ): Promise<StreamTextResult<{}, string>> {
   const ctx = new SystemContext(conversationHistory, userLocation);
 
+  // Always start with a query rewriter to plan and execute initial research
+  let isFirstIteration = true;
+
   // A loop that continues until we have an answer
   // or we've taken 5 actions
   while (!ctx.shouldStop()) {
-    // We choose the next action based on the state of our system
-    const nextAction = await getNextAction(ctx, langfuseTraceId);
-    
-    // Send progress update if writeMessageAnnotation is provided
-    if (writeMessageAnnotation) {
-      writeMessageAnnotation({
-        type: "NEW_ACTION",
-        action: nextAction,
-      } satisfies OurMessageAnnotation);
-    }
-    
-    // We execute the action and update the state of our system
-    if (nextAction.type === "search") {
-      if (!nextAction.query) {
-        console.error("Search action missing query");
-        ctx.incrementStep();
-        continue;
+    if (isFirstIteration) {
+      // On the first iteration, always plan and execute queries
+      const queryPlan = await queryRewriter(ctx, langfuseTraceId);
+      
+      // Send progress update with query plan if writeMessageAnnotation is provided
+      if (writeMessageAnnotation) {
+        writeMessageAnnotation({
+          type: "NEW_ACTION",
+          action: {
+            type: "continue",
+            title: "Planning initial research",
+            reasoning: "Starting research by planning and executing search queries to gather information about the user's question."
+          },
+          queryPlan: queryPlan,
+        } satisfies OurMessageAnnotation);
       }
       
-      const searchResults = await searchAndScrapeWeb(nextAction.query, conversationHistory, langfuseTraceId);
-      ctx.reportSearch({
-        query: nextAction.query,
-        results: searchResults,
+      // Execute all queries in parallel for maximum speed
+      const searchPromises = queryPlan.queries.map(query => 
+        searchAndScrapeWeb(query, conversationHistory, langfuseTraceId)
+      );
+      
+      const searchResultsArrays = await Promise.all(searchPromises);
+      
+      // Report all search results to the context
+      queryPlan.queries.forEach((query, index) => {
+        const results = searchResultsArrays[index];
+        if (results) {
+          ctx.reportSearch({
+            query: query,
+            results: results,
+          });
+        }
       });
-    } else if (nextAction.type === "answer") {
-      return answerQuestion(ctx, { isFinal: false }, langfuseTraceId, onFinish);
+      
+      isFirstIteration = false;
+    } else {
+      // On subsequent iterations, decide whether to continue or answer
+      const nextAction = await getNextAction(ctx, langfuseTraceId);
+      
+      if (nextAction.type === "continue") {
+        // Generate a research plan and queries
+        const queryPlan = await queryRewriter(ctx, langfuseTraceId);
+        
+        // Send progress update with query plan if writeMessageAnnotation is provided
+        if (writeMessageAnnotation) {
+          writeMessageAnnotation({
+            type: "NEW_ACTION",
+            action: nextAction,
+            queryPlan: queryPlan,
+          } satisfies OurMessageAnnotation);
+        }
+        
+        // Execute all queries in parallel for maximum speed
+        const searchPromises = queryPlan.queries.map(query => 
+          searchAndScrapeWeb(query, conversationHistory, langfuseTraceId)
+        );
+        
+        const searchResultsArrays = await Promise.all(searchPromises);
+        
+        // Report all search results to the context
+        queryPlan.queries.forEach((query, index) => {
+          const results = searchResultsArrays[index];
+          if (results) {
+            ctx.reportSearch({
+              query: query,
+              results: results,
+            });
+          }
+        });
+      } else if (nextAction.type === "answer") {
+        // Send progress update if writeMessageAnnotation is provided
+        if (writeMessageAnnotation) {
+          writeMessageAnnotation({
+            type: "NEW_ACTION",
+            action: nextAction,
+          } satisfies OurMessageAnnotation);
+        }
+        
+        return answerQuestion(ctx, { isFinal: false }, langfuseTraceId, onFinish);
+      }
     }
 
     // We increment the step counter
