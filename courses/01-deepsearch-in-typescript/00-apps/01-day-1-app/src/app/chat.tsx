@@ -12,6 +12,7 @@ import { isNewChatCreated } from "~/utils";
 import type { Message } from "ai";
 import { StickToBottom } from "use-stick-to-bottom";
 import type { OurMessageAnnotation } from "~/server/system-context";
+import { useAutoResume } from "~/hooks/use-auto-resume";
 
 interface ChatProps {
   userName: string;
@@ -36,9 +37,11 @@ export const ChatPage = ({ userName, isAuthenticated, chatId, isNewChat, initial
     handleInputChange,
     handleSubmit,
     isLoading,
-    error,
-    data
+    data,
+    experimental_resume,
+    setMessages
   } = useChat({
+    id: chatId,
     initialMessages,
     body: {
       chatId,
@@ -76,6 +79,15 @@ export const ChatPage = ({ userName, isAuthenticated, chatId, isNewChat, initial
         }
       }
     }
+  });
+
+  // Use auto-resume functionality
+  useAutoResume({
+    autoResume: true,
+    initialMessages: initialMessages ?? [],
+    experimental_resume,
+    data,
+    setMessages,
   });
 
   const [modalOpen, setModalOpen] = useState(false);

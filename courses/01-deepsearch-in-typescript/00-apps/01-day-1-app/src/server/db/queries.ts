@@ -5,6 +5,7 @@ import type { Message } from "ai";
 import type { OurMessageAnnotation } from "~/server/system-context";
 import { generateText } from "ai";
 import { model } from "~/models";
+import { chatStreams } from "./schema";
 
 const DAILY_REQUEST_LIMIT = 50;
 
@@ -204,3 +205,50 @@ export const generateChatTitle = async (
     return "New Chat";
   }
 }; 
+
+// Stream management functions for resumable streams
+export async function appendStreamId({ 
+  chatId, 
+  streamId 
+}: { 
+  chatId: string; 
+  streamId: string; 
+}): Promise<void> {
+  await db.insert(chatStreams).values({
+    chatId,
+    streamId,
+  });
+}
+
+export async function loadStreams(chatId: string): Promise<string[]> {
+  const streams = await db
+    .select({ streamId: chatStreams.streamId })
+    .from(chatStreams)
+    .where(eq(chatStreams.chatId, chatId))
+    .orderBy(desc(chatStreams.createdAt));
+
+  return streams.map(stream => stream.streamId);
+}
+
+export async function getMessagesByChatId({ 
+  id 
+}: { 
+  id: string; 
+}): Promise<Message[]> {
+  const dbMessages = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.chatId, id))
+    .orderBy(asc(messages.order));
+
+  return dbMessages.map(msg => ({
+    id: msg.id,
+    role: msg.role as "user" | "assistant" | "system",
+    content: Array.isArray(msg.parts) && msg.parts[0] && typeof msg.parts[0] === 'object' && 'text' in msg.parts[0] 
+      ? (msg.parts[0] as { text: string }).text 
+      : "",
+    parts: msg.parts as any,
+    annotations: msg.annotations as any,
+    createdAt: msg.createdAt,
+  }));
+} 

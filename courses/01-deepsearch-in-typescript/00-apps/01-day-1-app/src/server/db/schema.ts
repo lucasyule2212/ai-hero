@@ -201,6 +201,35 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   chat: one(chats, { fields: [messages.chatId], references: [chats.id] }),
 }));
 
+export const chatStreams = createTable(
+  "chat_stream",
+  {
+    id: varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    chatId: varchar("chat_id", { length: 255 })
+      .notNull()
+      .references(() => chats.id, { onDelete: "cascade" }),
+    streamId: varchar("stream_id", { length: 255 }).notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (stream) => ({
+    chatIdIdx: index("chat_stream_chat_id_idx").on(stream.chatId),
+    streamIdIdx: index("chat_stream_stream_id_idx").on(stream.streamId),
+    createdAtIdx: index("chat_stream_created_at_idx").on(stream.createdAt),
+  }),
+);
+
+export const chatStreamsRelations = relations(chatStreams, ({ one }) => ({
+  chat: one(chats, { fields: [chatStreams.chatId], references: [chats.id] }),
+}));
+
 export declare namespace DB {
   export type User = InferSelectModel<typeof users>;
   export type NewUser = InferInsertModel<typeof users>;
@@ -224,4 +253,7 @@ export declare namespace DB {
 
   export type Message = InferSelectModel<typeof messages>;
   export type NewMessage = InferInsertModel<typeof messages>;
+
+  export type ChatStream = InferSelectModel<typeof chatStreams>;
+  export type NewChatStream = InferInsertModel<typeof chatStreams>;
 }
