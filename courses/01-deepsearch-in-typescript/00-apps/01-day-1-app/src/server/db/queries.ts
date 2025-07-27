@@ -3,6 +3,8 @@ import { db } from "./index";
 import { userRequests, users, chats, messages } from "./schema";
 import type { Message } from "ai";
 import type { OurMessageAnnotation } from "~/server/system-context";
+import { generateText } from "ai";
+import { model } from "~/models";
 
 const DAILY_REQUEST_LIMIT = 50;
 
@@ -171,3 +173,34 @@ export async function getChats(userId: string) {
     .where(eq(chats.userId, userId))
     .orderBy(desc(chats.updatedAt));
 } 
+
+export const generateChatTitle = async (
+  messages: Message[],
+): Promise<string> => {
+  try {
+    const { text } = await generateText({
+      model,
+      system: `You are a chat title generator.
+        You will be given a chat history, and you will need to generate a title for the chat.
+        The title should be a single sentence that captures the essence of the chat.
+        The title should be no more than 50 characters.
+        The title should be in the same language as the chat history.
+        Do not include quotes, ellipsis, or any punctuation at the end.
+        `,
+      prompt: `Here is the chat history:
+
+        ${messages.map((m) => m.content).join("\n")}
+      `,
+    });
+
+    return text.trim();
+  } catch (error) {
+    console.error("Failed to generate chat title:", error);
+    // Fallback to a simple title based on the first user message
+    const firstUserMessage = messages.find(msg => msg.role === "user");
+    if (firstUserMessage?.content) {
+      return firstUserMessage.content.slice(0, 50);
+    }
+    return "New Chat";
+  }
+}; 

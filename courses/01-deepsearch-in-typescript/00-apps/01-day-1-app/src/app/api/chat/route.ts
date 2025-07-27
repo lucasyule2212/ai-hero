@@ -6,7 +6,7 @@ import {
 import { Langfuse } from "langfuse";
 import { env } from "~/env";
 import { auth } from "~/server/auth/index";
-import { checkRateLimit, addUserRequest, upsertChat } from "~/server/db/queries";
+import { checkRateLimit, addUserRequest, upsertChat, generateChatTitle } from "~/server/db/queries";
 import { streamFromDeepSearch } from "~/server/deep-research";
 import type { OurMessageAnnotation } from "~/server/system-context";
 
@@ -76,11 +76,13 @@ export async function POST(request: Request) {
   // Use the provided chatId
   const finalChatId = chatId;
   
-  // Only generate a title for new chats
-  let chatTitle = "New Chat";
+  // Start title generation in parallel if this is a new chat
+  let titlePromise: Promise<string> | undefined;
+  
   if (isNewChat) {
-    const firstUserMessage = messages.find(msg => msg.role === "user");
-    chatTitle = firstUserMessage?.content?.slice(0, 50) ?? "New Chat";
+    titlePromise = generateChatTitle(messages);
+  } else {
+    titlePromise = Promise.resolve("");
   }
 
   // Create the chat immediately with the user's message
@@ -96,9 +98,9 @@ export async function POST(request: Request) {
     messages: messages as (Message & { annotations?: OurMessageAnnotation[] })[],
   };
   
-  // Only include title for new chats
+  // Only include a temporary title for new chats
   if (isNewChat) {
-    initialUpsertOptions.title = chatTitle;
+    initialUpsertOptions.title = "Generating...";
   }
   
   const initialUpsertSpan = trace.span({
@@ -181,8 +183,10 @@ export async function POST(request: Request) {
             (lastMessage as any).annotations = annotations;
           }
 
+          // Resolve the title promise
+          const title = await titlePromise;
+
           // Save the complete conversation to the database
-          // Only pass title for new chats to prevent unnecessary updates
           const upsertOptions: {
             userId: string;
             chatId: string;
@@ -194,9 +198,9 @@ export async function POST(request: Request) {
             messages: updatedMessages as (Message & { annotations?: OurMessageAnnotation[] })[],
           };
           
-          // Only include title for new chats
-          if (isNewChat) {
-            upsertOptions.title = chatTitle;
+          // Only include title if it's not empty (for new chats with generated titles)
+          if (title && title !== "Generating...") {
+            upsertOptions.title = title;
           }
 
           const finalUpsertSpan = trace.span({
